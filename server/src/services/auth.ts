@@ -1,39 +1,24 @@
-import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { Request } from 'express';
 
-import dotenv from 'dotenv';
-dotenv.config();
+const secret = process.env.JWT_SECRET || 'supersecret';
+const expiration = '2h';
 
-interface JwtPayload {
-  _id: unknown;
-  username: string;
-  email: string,
+export function signToken(user: { _id: string; username: string; email: string }): string {
+  return jwt.sign({ _id: user._id, username: user.username, email: user.email }, secret, { expiresIn: expiration });
 }
 
-export const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
+export function authenticateToken(req: Request): any {
   const authHeader = req.headers.authorization;
-
-  if (authHeader) {
-    const token = authHeader.split(' ')[1];
-
-    const secretKey = process.env.JWT_SECRET_KEY || '';
-
-    jwt.verify(token, secretKey, (err, user) => {
-      if (err) {
-        return res.sendStatus(403); // Forbidden
-      }
-
-      req.user = user as JwtPayload;
-      return next();
-    });
-  } else {
-    res.sendStatus(401); // Unauthorized
+  if (!authHeader) {
+    return null; // No token provided
   }
-};
 
-export const signToken = (username: string, email: string, _id: unknown) => {
-  const payload = { username, email, _id };
-  const secretKey = process.env.JWT_SECRET_KEY || '';
+  let token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader;
 
-  return jwt.sign(payload, secretKey, { expiresIn: '1h' });
-};
+  try {
+    return jwt.verify(token, secret);
+  } catch {
+    return null; // Invalid token
+  }
+}
